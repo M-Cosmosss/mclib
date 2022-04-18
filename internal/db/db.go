@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 
@@ -19,14 +20,30 @@ type pgConfig struct {
 	Host     string `json:"host"`
 }
 
+var AllTables = []interface{}{
+	&Book{},
+	&User{},
+	&Manager{},
+	&BorrowLog{},
+}
+
+type Transactor interface {
+	Transaction(fc func(tx *gorm.DB) error, opts ...*sql.TxOptions) (err error)
+}
+
 func Init() {
 	conf := readConfig()
 	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", conf.User, conf.Password, conf.Host, conf.DBName)
-	_, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		panic(err)
+		log.Fatal("PostgreSQL connect error: %v", err)
 	}
 	log.Info("PostgreSQL connected.")
+	if err = db.AutoMigrate(AllTables...); err != nil {
+		log.Fatal("AutoMigrate error: %v", err)
+	}
+
+	SetDatabaseStore(db)
 }
 
 func readConfig() *pgConfig {
@@ -40,4 +57,11 @@ func readConfig() *pgConfig {
 		panic(err)
 	}
 	return conf
+}
+
+func SetDatabaseStore(db *gorm.DB) {
+	Books = NewBooksStore(db)
+	BorrowLogs = NewBorrowLogsStore(db)
+	Managers = NewManagersStore(db)
+	Users = NewUsersStore(db)
 }

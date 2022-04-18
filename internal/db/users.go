@@ -1,7 +1,20 @@
 package db
 
-import "gorm.io/gorm"
-import "github.com/lib/pq"
+import (
+	"github.com/lib/pq"
+	"gorm.io/gorm"
+)
+
+var _ UsersStore = (*users)(nil)
+
+var Users UsersStore
+
+type UsersStore interface {
+}
+
+type users struct {
+	*gorm.DB
+}
 
 type User struct {
 	gorm.Model
@@ -11,4 +24,12 @@ type User struct {
 	Salt       string
 	BooksLimit int
 	BooksID    pq.Int32Array `gorm:"type:integer[]"`
+}
+
+func NewUsersStore(db *gorm.DB) UsersStore {
+	return &users{db}
+}
+
+func (db *users) New() {
+
 }
