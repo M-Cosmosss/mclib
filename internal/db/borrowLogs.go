@@ -29,3 +29,7 @@ type BorrowLog struct {
 func NewBorrowLogsStore(db *gorm.DB) BorrowLogsStore {
 	return &borrowLogs{db}
 }
+
+func (b *borrowLogs) name() {
+
+}

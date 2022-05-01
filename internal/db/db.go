@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -44,6 +45,12 @@ func Init() {
 	}
 
 	SetDatabaseStore(db)
+
+	Users.Create(context.Background(), CreateUserOption{
+		Name:     "admin",
+		Password: "admin",
+		IsAdmin:  true,
+	})
 }
 
 func readConfig() *pgConfig {
