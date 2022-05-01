@@ -19,6 +19,9 @@ type UsersStore interface {
 	Create(ctx context.Context, opts CreateUserOption) (*User, error)
 	GetByName(ctx context.Context, name string) (*User, error)
 	GetByID(ctx context.Context, id uint) (*User, error)
+	Borrow(ctx context.Context, user User, id int) error
+	Return(ctx context.Context, user User, nums []int32) error
+	DeleteByID(ctx context.Context, id uint) error
 }
 
 type users struct {
@@ -56,6 +59,8 @@ func NewUsersStore(db *gorm.DB) UsersStore {
 	return &users{db}
 }
 
+var ErrUserNotExists = errors.New("用户不存在")
+
 type CreateUserOption struct {
 	Name     string `binding:"required"`
 	Password string `binding:"required"`
@@ -83,7 +88,7 @@ func (db *users) Create(ctx context.Context, opts CreateUserOption) (*User, erro
 func (db *users) GetByName(ctx context.Context, name string) (*User, error) {
 	u := &User{}
 	if err := db.WithContext(ctx).Model(&User{}).Where("name = ?", name).First(u).Error; err != nil {
-		return nil, err
+		return nil, ErrUserNotExists
 	}
 	return u, nil
 }
@@ -91,15 +96,36 @@ func (db *users) GetByName(ctx context.Context, name string) (*User, error) {
 func (db *users) GetByID(ctx context.Context, id uint) (*User, error) {
 	u := &User{}
 	if err := db.WithContext(ctx).Model(&User{}).Where("id = ?", id).First(u).Error; err != nil {
-		return nil, err
+		return nil, ErrUserNotExists
+	}
+	if u.BooksID == nil {
+		u.BooksID = []int32{}
 	}
 	return u, nil
 }
 
 func (db *users) Borrow(ctx context.Context, user User, id int) error {
 	user.BooksID = append(user.BooksID, int32(id))
-	if err := db.WithContext(ctx).Save(&user).Error; err != nil {
+	if err := db.WithContext(ctx).Model(&User{}).
+		Where("id = ?", user.ID).
+		Update("books_id", user.BooksID).Error; err != nil {
 		return err
 	}
 	return nil
+}
+
+func (db *users) Return(ctx context.Context, user User, nums []int32) error {
+	user.BooksID = nums
+	if err := db.WithContext(ctx).Model(User{}).Where("id = ?", user.ID).Updates(user).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (db *users) DeleteByID(ctx context.Context, id uint) error {
+	_, err := db.GetByID(ctx, id)
+	if err != nil {
+		return errors.Wrap(err, "get by ID")
+	}
+	return db.WithContext(ctx).Where("id = ?", id).Delete(&User{}).Error
 }

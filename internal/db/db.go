@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-
 	log "unknwon.dev/clog/v2"
 
 	"os"
@@ -33,8 +32,7 @@ type Transactor interface {
 }
 
 func Init() {
-	conf := readConfig()
-	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", conf.User, conf.Password, conf.Host, conf.DBName)
+	dsn := GetPGDSN()
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("PostgreSQL connect error: %v", err)
@@ -46,11 +44,26 @@ func Init() {
 
 	SetDatabaseStore(db)
 
-	Users.Create(context.Background(), CreateUserOption{
+	q := `
+CREATE TABLE IF NOT EXISTS sessions (
+    key        TEXT PRIMARY KEY,
+    data       BYTEA NOT NULL,
+    expired_at TIMESTAMP WITH TIME ZONE NOT NULL
+);`
+	if err := db.Exec(q).Error; err != nil {
+		log.Fatal("failed to create session table: %v", err)
+	}
+
+	_, _ = Users.Create(context.Background(), CreateUserOption{
 		Name:     "admin",
 		Password: "admin",
 		IsAdmin:  true,
 	})
+}
+
+func GetPGDSN() string {
+	conf := readConfig()
+	return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", conf.User, conf.Password, conf.Host, conf.DBName)
 }
 
 func readConfig() *pgConfig {

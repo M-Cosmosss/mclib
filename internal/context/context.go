@@ -3,22 +3,22 @@ package context
 import (
 	"encoding/json"
 	"github.com/M-Cosmosss/mclib/internal/db"
+	"github.com/flamego/flamego"
 	"log"
 	"net/http"
 
-	"github.com/go-macaron/session"
-	"gopkg.in/macaron.v1"
+	"github.com/flamego/session"
 )
 
 type Context struct {
-	*macaron.Context
+	flamego.Context
 	IsUser    bool
 	IsManager bool
 }
 
 func (c *Context) Success(data ...interface{}) error {
-	c.Resp.Header().Set("Content-Type", "application/json; charset=utf-8")
-	c.Resp.WriteHeader(http.StatusOK)
+	c.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
+	c.ResponseWriter().WriteHeader(http.StatusOK)
 
 	var d interface{}
 	if len(data) == 1 {
@@ -27,7 +27,7 @@ func (c *Context) Success(data ...interface{}) error {
 		d = ""
 	}
 
-	err := json.NewEncoder(c.Resp).Encode(
+	err := json.NewEncoder(c.ResponseWriter()).Encode(
 		map[string]interface{}{
 			"error": 0,
 			"data":  d,
@@ -40,10 +40,10 @@ func (c *Context) Success(data ...interface{}) error {
 }
 
 func (c *Context) Error(errorCode int, msg string) error {
-	c.Resp.Header().Set("Content-Type", "application/json; charset=utf-8")
-	c.Resp.WriteHeader(errorCode)
+	c.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
+	c.ResponseWriter().WriteHeader(errorCode)
 
-	err := json.NewEncoder(c.Resp).Encode(
+	err := json.NewEncoder(c.ResponseWriter()).Encode(
 		map[string]interface{}{
 			"error": errorCode,
 			"msg":   msg,
@@ -55,12 +55,12 @@ func (c *Context) Error(errorCode int, msg string) error {
 	return nil
 }
 
-func Contexter() macaron.Handler {
-	return func(ctx *macaron.Context, sess session.Store) {
+func Contexter() flamego.Handler {
+	return func(ctx flamego.Context, sess session.Session) {
 		c := &Context{ctx, false, false}
 		userID, ok := sess.Get(UserIDSessionKey).(uint)
 		if ok {
-			u, err := db.Users.GetByID(ctx.Req.Context(), userID)
+			u, err := db.Users.GetByID(ctx.Request().Context(), userID)
 			if err == nil {
 				c.IsUser = true
 			}
