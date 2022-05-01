@@ -116,7 +116,7 @@ func (db *users) Borrow(ctx context.Context, user User, id int) error {
 
 func (db *users) Return(ctx context.Context, user User, nums []int32) error {
 	user.BooksID = nums
-	if err := db.WithContext(ctx).Model(User{}).Where("id = ?", user.ID).Updates(user).Error; err != nil {
+	if err := db.WithContext(ctx).Model(User{}).Where("id = ?", user.ID).Update("books_id", user.BooksID).Error; err != nil {
 		return err
 	}
 	return nil

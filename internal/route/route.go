@@ -49,16 +49,14 @@ func Init() *flamego.Flame {
 	//m.Use(userAuth)
 	m.Group("/book", func() {
 		m.Get("/list", BookHandler.List)
-		m.Get("/", BookHandler.Get)
+		m.Get("", BookHandler.Get)
+
+		m.Post("/borrow", userAuth, binding.JSON(BorrowBookOption{}), BookHandler.Borrow)
+		m.Delete("/borrow", managerAuth, BookHandler.Return)
 
 		m.Group("", func() {
-			m.Post("/borrow", binding.JSON(BorrowBookOption{}), BookHandler.Borrow)
-		}, userAuth)
-
-		m.Group("", func() {
-			m.Post("/return", binding.JSON(ReturnBookOption{}), BookHandler.Return)
-			m.Post("/create", binding.JSON(CreateBookOption{}), BookHandler.Create)
-			m.Delete("/delete", binding.JSON(CreateBookOption{}), BookHandler.Delete)
+			m.Post("", binding.JSON(CreateBookOption{}), BookHandler.Create)
+			m.Delete("", BookHandler.Delete)
 		}, managerAuth)
 	})
 

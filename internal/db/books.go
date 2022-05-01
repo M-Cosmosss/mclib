@@ -20,6 +20,7 @@ type BooksStore interface {
 	GetByISBN(ctx context.Context, isbn int) ([]Book, error)
 	List(ctx context.Context, option ListBookOption) ([]Book, int, error)
 	Borrow(ctx context.Context, bid int, uid int) error
+	UpdateByID(ctx context.Context, book Book) error
 	Delete(ctx context.Context, id int) error
 }
 
@@ -146,9 +147,9 @@ func (db *books) GetByISBN(ctx context.Context, isbn int) ([]Book, error) {
 	return b, nil
 }
 
-//func (db *books) UpdateByID(ctx context.Context, book Book) error {
-//	return db.WithContext(ctx).Model(Book{}).Updates(book).Error
-//}
+func (db *books) UpdateByID(ctx context.Context, book Book) error {
+	return db.WithContext(ctx).Model(Book{}).Where("id = ?", book.ID).Update("is_borrowed", book.IsBorrowed).Error
+}
 
 func (db *books) Borrow(ctx context.Context, bid int, uid int) error {
 	book, err := db.GetByID(ctx, bid)

@@ -38,18 +38,14 @@ func (b *Books) Create(ctx *context.Context, option CreateBookOption) error {
 	return nil
 }
 
-type DeleteBookOption struct {
-	ID int `json:"id"`
-}
-
-func (b *Books) Delete(ctx *context.Context, option DeleteBookOption) error {
-
-	err := db.Books.Delete(ctx.Request().Context(), option.ID)
+func (b *Books) Delete(ctx *context.Context) error {
+	id := ctx.QueryInt("id")
+	err := db.Books.Delete(ctx.Request().Context(), id)
 	if err != nil {
 		log.Error("Delete book failed: %v", err)
 		return ctx.Error(http.StatusInternalServerError, err.Error())
 	}
-	log.Info("Delete book: %s", option.ID)
+	log.Info("Delete book: %s", id)
 	return nil
 }
 
@@ -161,35 +157,35 @@ func (b *Books) Borrow(ctx *context.Context, user *db.User, option BorrowBookOpt
 	return ctx.Success("借书成功")
 }
 
-type ReturnBookOption struct {
-	BookID uint `json:"book_id"`
-}
-
-func (b *Books) Return(ctx *context.Context, option ReturnBookOption) error {
-
-	if book, err := db.Books.GetByID(ctx.Request().Context(), int(option.BookID)); err != nil {
+func (b *Books) Return(ctx *context.Context) error {
+	id := ctx.QueryInt("id")
+	if book, err := db.Books.GetByID(ctx.Request().Context(), int(id)); err != nil {
 		return ctx.Error(http.StatusBadRequest, err.Error())
 	} else {
-		if book.LastBorrowedUserID == -1 {
+		if !book.IsBorrowed {
 			return ctx.Error(http.StatusBadRequest, "该书未处于被借状态")
 		}
 
 		if user, err := db.Users.GetByID(ctx.Request().Context(), uint(book.LastBorrowedUserID)); err != nil {
-			return ctx.Error(http.StatusInternalServerError, "数据库错误，请联系管理员")
+			return ctx.Error(http.StatusInternalServerError, fmt.Sprintf("数据库错误，请联系管理员: %v", err))
 		} else {
-			nums, err := utils.CleanNumInSlice(user.BooksID, int32(option.BookID))
+			nums, err := utils.CleanNumInSlice(user.BooksID, int32(id))
 			if err != nil {
-				return ctx.Error(http.StatusInternalServerError, err.Error())
+				return ctx.Error(http.StatusInternalServerError, errors.Wrap(err, "CleanNumInSlice").Error())
 			}
 			if err := db.Users.Return(ctx.Request().Context(), *user, nums); err != nil {
-				return ctx.Error(http.StatusInternalServerError, err.Error())
+				return ctx.Error(http.StatusInternalServerError, errors.Wrap(err, "user return").Error())
 			}
 			if err := db.BorrowLogs.Create(ctx.Request().Context(), db.CreateLogOption{
 				User:      int(user.ID),
-				Book:      int(option.BookID),
+				Book:      int(id),
 				Operation: db.RETURN,
 			}); err != nil {
-				return ctx.Error(http.StatusInternalServerError, err.Error())
+				return ctx.Error(http.StatusInternalServerError, errors.Wrap(err, "borrow log").Error())
+			}
+			book.IsBorrowed = false
+			if err := db.Books.UpdateByID(ctx.Request().Context(), *book); err != nil {
+				return ctx.Error(http.StatusInternalServerError, errors.Wrap(err, "update book").Error())
 			}
 			return ctx.Success("还书成功")
 		}
