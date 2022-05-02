@@ -90,10 +90,10 @@ func (db *books) Get(ctx context.Context, opts GetBookOptions) (*Book, error) {
 		q = q.Where("isbn = ?", opts.ID)
 	}
 	if opts.Name != "" {
-		q = q.Where("name = ?", opts.Name)
+		q = q.Where("name LIKE ?", "%"+opts.Name+"%")
 	}
 	if opts.Author != "" {
-		q = q.Where("author = ?", opts.Author)
+		q = q.Where("author LIKE ?", "%"+opts.Author+"%")
 	}
 
 	var book Book
@@ -104,13 +104,13 @@ func (db *books) Get(ctx context.Context, opts GetBookOptions) (*Book, error) {
 }
 
 type ListBookOption struct {
-	ID  uint
+	Off int
 	Num int
 }
 
 func (db *books) List(ctx context.Context, option ListBookOption) ([]Book, int, error) {
 	b := make([]Book, 10)
-	if err := db.WithContext(ctx).Where("id >= ?", option.ID).Limit(option.Num).Order("id ASC").Find(&b).Error; err != nil {
+	if err := db.WithContext(ctx).Limit(option.Num).Offset(option.Off).Order("id ASC").Find(&b).Error; err != nil {
 		log.Error("List book error: %v", err)
 		return nil, -1, err
 	}

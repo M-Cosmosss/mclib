@@ -40,13 +40,18 @@ func (b *Books) Create(ctx *context.Context, option CreateBookOption) error {
 
 func (b *Books) Delete(ctx *context.Context) error {
 	id := ctx.QueryInt("id")
-	err := db.Books.Delete(ctx.Request().Context(), id)
+	_, err := db.Books.GetByID(ctx.Request().Context(), id)
+	if err != nil {
+		return ctx.Error(http.StatusNotFound, db.ErrBookNotExist.Error())
+	}
+
+	err = db.Books.Delete(ctx.Request().Context(), id)
 	if err != nil {
 		log.Error("Delete book failed: %v", err)
 		return ctx.Error(http.StatusInternalServerError, err.Error())
 	}
 	log.Info("Delete book: %s", id)
-	return nil
+	return ctx.Success("删除成功")
 }
 
 //
@@ -56,13 +61,13 @@ func (b *Books) Delete(ctx *context.Context) error {
 //}
 
 func (b *Books) List(ctx *context.Context) error {
-	id, num := ctx.QueryInt("id"), ctx.QueryInt("num")
+	off, num := ctx.QueryInt("offset"), ctx.QueryInt("num")
 	if num <= 0 {
 		return ctx.Error(http.StatusBadRequest, "错误参数")
 	}
-	fmt.Printf("id-%d num-%d\n", id, num)
+	fmt.Printf("id-%d num-%d\n", off, num)
 	books, count, err := db.Books.List(ctx.Request().Context(), db.ListBookOption{
-		ID:  uint(id),
+		Off: off,
 		Num: num,
 	})
 	if err != nil {
@@ -88,11 +93,10 @@ func (b *Books) Get(ctx *context.Context) error {
 		Author: author,
 	})
 	if err != nil {
-		if errors.Is(err, db.ErrBookNotExist) {
-			return ctx.Error(http.StatusNotFound, "书籍不存在")
-		}
-		log.Error("Failed to get book: %v", err)
-		return ctx.Error(http.StatusInternalServerError, "内部错误")
+		return ctx.Error(http.StatusNotFound, "书籍不存在")
+		//}
+		//log.Error("Failed to get book: %v", err)
+		//return ctx.Error(http.StatusInternalServerError, "内部错误")
 	}
 
 	return ctx.Success(book)
