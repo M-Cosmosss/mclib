@@ -7,6 +7,7 @@ import (
 	"github.com/M-Cosmosss/mclib/internal/utils"
 	"github.com/pkg/errors"
 	"net/http"
+	"time"
 	log "unknwon.dev/clog/v2"
 )
 
@@ -196,6 +197,14 @@ func (b *Books) Return(ctx *context.Context) error {
 	}
 }
 
+type BorrowLogReply struct {
+	ID        uint
+	User      string
+	Book      string
+	Time      time.Time
+	Operation int
+}
+
 func (b *Books) Logs(ctx *context.Context) error {
 	limit := ctx.QueryInt("limit")
 	offset := ctx.QueryInt("offset")
@@ -207,8 +216,32 @@ func (b *Books) Logs(ctx *context.Context) error {
 		log.Error("Failed to list borrow logs: %v", err)
 		return ctx.Error(http.StatusInternalServerError, "内部错误")
 	}
+	reply := []*BorrowLogReply{}
+
+	for _, borrowLog := range borrowLogs {
+		var user, book string
+		u, err := db.Users.GetByID(ctx.Request().Context(), uint(borrowLog.UserID))
+		if err != nil {
+			user = "已注销用户"
+		} else {
+			user = u.Name
+		}
+		b, err := db.Books.GetByID(ctx.Request().Context(), borrowLog.BookID)
+		if err != nil {
+			book = "已删除书籍"
+		} else {
+			book = b.Name
+		}
+		reply = append(reply, &BorrowLogReply{
+			ID:        borrowLog.ID,
+			User:      user,
+			Book:      book,
+			Time:      borrowLog.CreatedAt,
+			Operation: borrowLog.Operation,
+		})
+	}
 	return ctx.Success(map[string]interface{}{
-		"borrow_logs": borrowLogs,
+		"borrow_logs": reply,
 		"count":       count,
 	})
 }
